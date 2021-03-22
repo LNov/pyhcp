@@ -4,10 +4,14 @@ from pathlib import Path
 from rpy2.robjects.packages import importr
 import numpy as np 
 import pandas as pd
+import scipy.io
+
+# Provide path to parcellation (default is FreeSurfer anatomical parcellation with 70 parcels)
+# custom_parcellation = 'default'
+custom_parcellation = 'Schaefer2018_400Parcels_7Networks_order_Tian_Subcortex_S2.dlabel.nii'
 
 # Load meta data as pandas data frame. Don't put this inside a function, 
 # so we don't have to read file from disk each time. 
-
 meta_file = Path('HCP_1200/meta_data.csv')
 meta_data = pd.read_csv(meta_file, index_col='Subject')
 
@@ -22,7 +26,11 @@ def download_subject(sname):
         A tuple consisting of list of dense time series and labels
     """
 
-    s3 = boto3.resource('s3')
+    s3 = boto3.resource(
+        's3',
+        #aws_access_key_id='<insert_here>', # not necessary if setting up config with awscli (run 'aws configure')
+        #aws_secret_access_key='<insert_here>' # not necessary if setting up config with awscli (run 'aws configure')
+        )
 
     #  Declare bucket name
     BUCKET_NAME = 'hcp-openaccess'
@@ -33,14 +41,11 @@ def download_subject(sname):
 
     print('-'*10, ' Downloading data for ...', sname)
 
-    keyword1='Atlas_MSMAll_hp2000_clean.dtseries.nii'
-    keyword2='aparc.32k_fs_LR.dlabel.nii'
+    keyword1='Atlas_MSMAll_hp2000_clean.dtseries.nii' # dense time series
+    keyword2='aparc.32k_fs_LR.dlabel.nii' # FreeSurfer anatomical parcellation
     filtered_list = filter(lambda x: (keyword1 in x or keyword2 in x) and '7T' not in x, key_list)
     
     dense_time_series, parcel_labels = list(), list()
-
-    # filtered_list2 = list(filter(lambda x: (keyword2 in x ), key_list))
-    # filtered_list = filtered_list1 + filtered_list2
 
     # Loop through keys and use download_file to download each key (file) to the directory where this code is running.
     for key in filtered_list:
@@ -63,6 +68,10 @@ def download_subject(sname):
             parcel_labels.append(key)
         else:
             raise LookupError
+
+    if not custom_parcellation == 'default':
+        # Override default parcellation
+        parcel_labels = [str(Path('HCP_1200') / 'parcellations' / custom_parcellation)]
 
     # return dense_time_series, parcellation_labels, subject name
     return dense_time_series, parcel_labels, sname
@@ -147,15 +156,24 @@ def process_ptseries(ptseries):
 
     datum_dict = dict(zip(roi_names, np.asarray(cifti_dict['data'])))
 
+    # Also save parcellated time series in npy and MAT formats
+    path_session = Path(ptseries).parent
+    #np.save(path_session / 'ptseries.npy', np.asarray(cifti_dict['data']))
+    scipy.io.savemat(path_session / 'ptseries.mat', 
+        {
+            'data': np.asarray(cifti_dict['data']),
+            'parcellation': custom_parcellation,
+        })
+
     renamer = {'rfMRI_REST1_LR_Atlas_MSMAll_hp2000_clean.ptseries.nii': 'REST1_LR',
                'rfMRI_REST1_RL_Atlas_MSMAll_hp2000_clean.ptseries.nii': 'REST1_RL',
                'rfMRI_REST2_LR_Atlas_MSMAll_hp2000_clean.ptseries.nii': 'REST2_LR',
                'rfMRI_REST2_RL_Atlas_MSMAll_hp2000_clean.ptseries.nii': 'REST2_RL'}
 
-    lookup = ptseries.split('/')[-1]
+    # lookup = ptseries.split('/')[-1]
+    lookup = os.path.basename(ptseries)
 
     return renamer[lookup], datum_dict
-
 
 def clean_subject(subject_id, keep_files):
     """ Cleans up data relating to a subject by removing all the files that are not given as argument.
