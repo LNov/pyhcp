@@ -5,8 +5,8 @@ import zipshelve
 from pickle import HIGHEST_PROTOCOL
 from datetime import datetime
 
-batch_size = 4
-
+parallel = True
+batch_size = 5
 
 def batches(iterable, n=1):
     l = len(iterable)
@@ -34,7 +34,6 @@ def main():
 
     print(datetime.now())
 
-    parallel = False
     if parallel:
         fin = 'HCP_1200/hcp_data_'
         procs = 4 # number of processors

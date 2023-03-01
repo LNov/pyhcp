@@ -8,7 +8,7 @@ import scipy.io
 
 # Provide path to parcellation (default is FreeSurfer anatomical parcellation with 70 parcels)
 # custom_parcellation = 'default'
-custom_parcellation = 'Schaefer2018_400Parcels_7Networks_order_Tian_Subcortex_S2.dlabel.nii'
+custom_parcellation = 'Schaefer2018_200Parcels_17Networks_order.dlabel.nii'
 
 # Load meta data as pandas data frame. Don't put this inside a function, 
 # so we don't have to read file from disk each time. 
@@ -42,8 +42,9 @@ def download_subject(sname):
     print('-'*10, ' Downloading data for ...', sname)
 
     keyword1='Atlas_MSMAll_hp2000_clean.dtseries.nii' # dense time series
-    keyword2='aparc.32k_fs_LR.dlabel.nii' # FreeSurfer anatomical parcellation
-    filtered_list = filter(lambda x: (keyword1 in x or keyword2 in x) and '7T' not in x, key_list)
+    # keyword2='aparc.32k_fs_LR.dlabel.nii' # FreeSurfer anatomical parcellation
+    # filtered_list = filter(lambda x: (keyword1 in x or keyword2 in x) and '7T' not in x, key_list)
+    filtered_list = filter(lambda x: (keyword1 in x) and '7T' not in x, key_list)
     
     dense_time_series, parcel_labels = list(), list()
 
@@ -64,8 +65,8 @@ def download_subject(sname):
 
         if keyword1 in key:
             dense_time_series.append(key)
-        elif keyword2 in key:
-            parcel_labels.append(key)
+        # elif keyword2 in key:
+            # parcel_labels.append(key)
         else:
             raise LookupError
 
